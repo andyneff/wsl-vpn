@@ -1,0 +1,23 @@
+image:
+- Visual Studio 2019
+
+environment:
+  matrix:
+  - MSYSTEM: MINGW64
+
+init:
+- ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+install:
+  - rem
+
+# This is how you select "Script mode" instead of "MSBuild" mode. There MUST
+# be something in build_script, else it doesn't count :(
+build_script:
+  - rem
+
+test_script:
+  - rem
+
+on_finish:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
