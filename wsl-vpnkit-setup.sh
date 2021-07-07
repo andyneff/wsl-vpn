@@ -5,8 +5,6 @@ set -eu
 source common.env
 
 # Arg Parse
-no_docker=0
-additional_wsl=0
 while (( $# )); do
   case "${1}" in
     --no-docker)
@@ -14,6 +12,9 @@ while (( $# )); do
       ;;
     --additional-wsl)
       additional_wsl=1
+      ;;
+    --on-vpn
+      on_vpn=1
       ;;
     *)
       echo "Usage: $0 [--no-docker|--additional-wsl]" >&2
@@ -34,28 +35,7 @@ if [ -z "${WSL_DISTRO_NAME:+set}" ]; then
 fi
 
 if [ "${additional_wsl}" = "0" ]; then
-  # Determine dependencies
-  dependencies=(socat)
-  deb_install=(socat)
-  if [ "${no_docker}" = "0" ]; then
-    dependencies+=(unzip isoinfo)
-    deb_install=(unzip genisoimage)
-  fi
-
-  for cmd in "${dependencies[@]}"; do
-    if ! command -v "${cmd}" &> /dev/null; then
-      if command -v apt &> /dev/null; then
-        apt update
-        apt install -y "${deb_install[@]}"
-        break
-      # elif command -v yast2 &> /dev/null; then
-      #   ...
-      else
-        echo "Todo: program other package managers" &> /dev/null
-        exit 3
-      fi
-    fi
-  done
+  source install_dependencies.sh
 
   # Install /usr/local/bin/wsl-vpnkit-start.sh
   cp ./wsl-vpnkit-start.sh /usr/local/bin/
