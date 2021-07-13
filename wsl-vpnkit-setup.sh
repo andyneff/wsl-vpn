@@ -41,16 +41,16 @@ fi
 
 install_socat()
 {
-  if command -v apt &> /dev/null; then
+  if command -v apt > /dev/null 2>&1; then
     apt update
     apt install -y socat
-  elif command -v zypper &> /dev/null; then
+  elif command -v zypper > /dev/null 2>&1; then
     zypper install -y socat
-  elif command -v dnf &> /dev/null; then
+  elif command -v dnf > /dev/null 2>&1; then
     dnf install -y socat
-  elif command -v yum &> /dev/null; then
+  elif command -v yum > /dev/null 2>&1; then
     yum install -y socat
-  elif command -v apk &> /dev/null; then
+  elif command -v apk > /dev/null 2>&1; then
     apk add --no-cache socat
   else
     echo "There is no automated solution to install \"socat\" on this OS" >&2
@@ -63,7 +63,7 @@ install_socat()
   fi
 }
 
-if ! command -v socat &> /dev/null; then
+if ! command -v socat > /dev/null 2>&1; then
   if [ "${on_vpn}" = "0" ]; then
     install_socat
   else

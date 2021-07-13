@@ -13,7 +13,7 @@ VPNKIT_LOWEST_IP="192.168.67.3"
 VPNKIT_HIGHEST_IP="192.168.67.14"
 VPNKIT_DEBUG="${VPNKIT_DEBUG}"
 
-WIN_PIPE_PATH="${PIPE_PATH//\//\\}"
+WIN_PIPE_PATH="$(echo "${PIPE_PATH}" | tr '/' '\')"
 
 TAP_NAME=eth1
 
@@ -70,11 +70,14 @@ close()
 
   # for some reason, you get this problem https://serverfault.com/a/978311/321910
   # Adding onlink works, and will be remove when WSL restarts, so it seems harmless
-  if [[ ${IP_ROUTE} =~ onlink ]]; then
-    ip route add ${IP_ROUTE} # No quotes
-  else
-    ip route add ${IP_ROUTE} onlink  # No quotes
-  fi
+  case "${IP_ROUTE}" in
+    *onlink*)
+      ip route add ${IP_ROUTE} # No quotes
+      ;;
+    *)
+      ip route add ${IP_ROUTE} onlink  # No quotes
+      ;;
+  esac
 
   echo "${OTHER_ROUTES-}" | while read -r route; [ -n "${route}" ]; do
     ip route add ${route} # No quotes
