@@ -1,11 +1,11 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 set -eu
 
-source common.env
+. ./common.env
 
 # Arg Parse
-while (( $# )); do
+while [ "$#" -gt "0" ]; do
   case "${1}" in
     --no-docker)
       no_docker=1
@@ -15,6 +15,7 @@ while (( $# )); do
       ;;
     --on-vpn)
       on_vpn=1
+      ;;
     *)
       echo "Usage: $0 [--no-docker|--no-start]" >&2
       exit 2
@@ -32,35 +33,45 @@ fi
 if [ -z "${WSL_DISTRO_NAME:+set}" ]; then
   # eval "$(cat /proc/$(ppid $(ppid $$))/environ | tr "\0" "\n" | grep ^WSL_DISTRO_NAME=)"
   # Better way: https://github.com/microsoft/WSL/issues/4479#issuecomment-876698799
-  WSL_DISTRO_NAME="$(IFS='\'; x=($(wslpath -w /)); echo "${x[${#x[@]}-1]}")"
+  # WSL_DISTRO_NAME="$(IFS='\'; x=($(wslpath -w /)); echo "${x[${#x[@]}-1]}")" # Not sh compatible
+  WSL_DISTRO_NAME="$(wslpath -w /)"
+  WSL_DISTRO_NAME="${WSL_DISTRO_NAME%\\}" # remove trailing slash
+  WSL_DISTRO_NAME="${WSL_DISTRO_NAME##*\\}" # Get last component of path, the distro name
 fi
+
+install_socat()
+{
+  if command -v apt &> /dev/null; then
+    apt update
+    apt install -y socat
+  elif command -v zypper &> /dev/null; then
+    zypper install -y socat
+  elif command -v dnf &> /dev/null; then
+    dnf install -y socat
+  elif command -v yum &> /dev/null; then
+    yum install -y socat
+  elif command -v apk &> /dev/null; then
+    apk add --no-cache socat
+  else
+    echo "There is no automated solution to install \"socat\" on this OS" >&2
+    read -pr "Please enter a command to install \"socat\": " cmd
+    eval "${cmd}"
+    if ! command -v socat; then
+      echo "socat does not appear to be installed. Please get socat installed and try again"
+      exit 3
+    fi
+  fi
+}
 
 if ! command -v socat &> /dev/null; then
   if [ "${on_vpn}" = "0" ]; then
-    if command -v apt &> /dev/null; then
-      apt update
-      apt install -y socat
-    elif command -v zypper &> /dev/null; then
-      zypper install -y socat
-    elif command -v dnf &> /dev/null; then
-      dnf install -y socat
-    elif command -v yum &> /dev/null; then
-      yum install -y socat
-    elif command -v apk &> /dev/null; then
-      apk add --no-cache socat
-    else
-      echo "There is no automates solution to install \"socat\" on OS" >&2
-      read -pr "Please enter a command to install \"socat\": " cmd
-      eval "${cmd}"
-      if ! command -v socat; then
-        echo "socat does not appear to be installed. Please get socat installed and try again"
-        exit 3
-      fi
-    fi
+    install_socat
   else
     # This appears to work in alpine (musl) and ubuntu/fedora alike (glibc)
-    download_ps https://github.com/andrew-d/static-binaries/raw/8ae38c79510d072cdba0bf719ef4f16c052e2abc/binaries/linux/x86_64/socat /usr/local/bin/socat
-    chmod 755 /usr/local/bin/socat
+    download_ps https://github.com/andrew-d/static-binaries/raw/8ae38c79510d072cdba0bf719ef4f16c052e2abc/binaries/linux/x86_64/socat socat
+    mkdir -p /usr/local/sbin/
+    mv socat /usr/local/sbin/
+    chmod 755 /usr/local/sbin/socat
   fi
 fi
 
@@ -83,6 +94,7 @@ if [ -n "${SUDO_USER:+set}" ]; then
 fi
 
 mkdir -p "${WIN_BIN}"
+mkdir -p /usr/local/sbin
 if [ "${no_docker}" = "0" ]; then
   # Install c:\bin\wsl-vpnkit.exe
   cp "${DOCKER_WSL}/vpnkit.exe" "${WIN_BIN}/wsl-vpnkit.exe"
@@ -116,9 +128,19 @@ chown root:root /etc/profile.d/wsl-vpnkit.sh
 # Edit /etc/zsh/zprofile
 write_to_file "service wsl-vpnkit status > /dev/null || service wsl-vpnkit start"  /etc/zsh/zprofile
 
-echo "Setup complete!"
+if [ "${on_vpn}" = "0" ]; then
+  echo "Setup complete!"
+fi
 
 if [ "${no_start}" = "0" ]; then
   service wsl-vpnkit status > /dev/null || service wsl-vpnkit start
+
+  if [ "${on_vpn}" = "1" ]; then
+    install_socat
+    if [ -f "/usr/local/sbin/socat" ]; then
+      rm /usr/local/sbin/socat
+    fi
+  fi
+
   echo "WSL VPNKit Service started. You may proceed to use the internet like normal"
 fi

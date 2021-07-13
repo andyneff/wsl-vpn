@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 WIN_BIN="/mnt/c/bin"
 
@@ -18,6 +18,9 @@ WIN_PIPE_PATH="${PIPE_PATH//\//\\}"
 TAP_NAME=eth1
 
 IP_ROUTE=
+
+# Cover some stricter OSes
+export PATH="${PATH}:/usr/local/sbin"
 
 relay()
 {
@@ -47,13 +50,12 @@ ipconfig()
   ip route del ${IP_ROUTE} # No quotes, it needs to use the spaces
   ETHERNET_DEVICE="${IP_ROUTE##* }"
   local OLD_IFS="${IFS}"
-  local IFS=$'\n'
-  OTHER_ROUTES=($(ip route | grep "${ETHERNET_DEVICE}"))
-  IFS="${OLD_IFS}"
-  for route in ${OTHER_ROUTES[@]+"${OTHER_ROUTES[@]}"}; do
+
+  OTHER_ROUTES="$(ip route | grep "${ETHERNET_DEVICE}")"
+  echo "${OTHER_ROUTES}" | while read -r route; [ -n "${route}" ]; do
     ip route del ${route} # No quotes
   done
- 
+
   # plumb what will probably be eth1
   ip a add "${VPNKIT_LOWEST_IP}/255.255.255.0" dev "${TAP_NAME}"
   ip link set dev "${TAP_NAME}" up
@@ -65,17 +67,19 @@ ipconfig()
 close()
 {
   ip link set dev "${TAP_NAME}" down
-  
+
   # for some reason, you get this problem https://serverfault.com/a/978311/321910
   # Adding onlink works, and will be remove when WSL restarts, so it seems harmless
   if [[ ${IP_ROUTE} =~ onlink ]]; then
     ip route add ${IP_ROUTE} # No quotes
-  else 
+  else
     ip route add ${IP_ROUTE} onlink  # No quotes
   fi
-  for route in ${OTHER_ROUTES[@]+"${OTHER_ROUTES[@]}"}; do
+
+  echo "${OTHER_ROUTES-}" | while read -r route; [ -n "${route}" ]; do
     ip route add ${route} # No quotes
   done
+
   kill 0
 }
 
@@ -98,16 +102,6 @@ vpnkit &
 tap &
 
 # Wait for the ethernet device to be tapped
-# if command -f lshw &> /dev/null; then
-#   timeout 3 while : ; do
-#     if lshw -C network | grep "${TAP_NAME}"; then
-#       break
-#     fi
-#   done
-#   echo "Device "${TAP_NAME}" is taking too long to tap" >&2
-# else
-#   sleep 3
-# fi
 while [ ! -e "/sys/class/net/${TAP_NAME}" ]; do
   sleep 0.0001
 done

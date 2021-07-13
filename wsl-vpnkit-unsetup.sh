@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 set -eu
 
-source common.env
+. ./common.env
 
 if [ ${EUID:-$(id -u)} -ne 0 ]; then
   echo "You need to run this as root"

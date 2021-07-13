@@ -37,6 +37,16 @@ In case you want to remove and/or re-install the wsl-vpn files, you can run:
     - The only caveat is that you must start the WSL-VPN distro everytime you restart your computer or "shutdown" or "terminate" the WSL-VPN distro.
     - Simply opening up a tab to the WSL-VPN distro starts and fixes all of the other WSL2 distros. You can close it as soon as you open it.
     - If you need to script starting WSL-VPN: `/mnt/c/Windows/System32/wsl.exe -d {WSL-VPN distro name} --user root service wsl-vpnkit start`
+2. I tried it on alpine and got:
+    ```
+    ./wsl-vpnkit-setup.sh: line 136: service: not found
+
+    or
+
+     * WARNING: -a/--startas is deprecated and will be removed in the future, please use -x/--exec or -n/--name instead
+    /sbin/start-stop-daemon: unrecognized option: remove-pidfile
+    ```
+    - While the vpn kit scripts work on alpine, the service part does not. You have to manually run `/usr/local/bin/wsl-vpnkit-start.sh` on alpine. For the full experience use another distro
 
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
