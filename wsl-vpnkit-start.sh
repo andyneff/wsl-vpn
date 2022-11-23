@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+exec 1>>/tmp/.wsl-vpnkit.stdout 2>>/tmp/.wsl-vpnkit.stderr
+PS4='+${BASH_SOURCE[0]}:${LINENO} '
+set -xv
+
 WIN_BIN=$(wslpath "C:\bin")
 
 SOCKET_PATH=/var/run/wsl-vpnkit.sock
