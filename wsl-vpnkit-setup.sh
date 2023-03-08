@@ -81,17 +81,53 @@ if [ -n "${SUDO_USER:+set}" ]; then
   chown root:root /etc/sudoers.d/wsl-vpnkit
 fi
 
+function download_and_install()
+{
+  download_ps "${WSLBIN_URL}" wslbin.tar.gz
+  tar -xf wslbin.tar.gz .
+  while (( $# )); do
+    case $1
+      vpnkit)
+        mv wsl-vpnkit.exe "${WIN_BIN}"
+        ;;
+      tap)
+        mv vpnkit-tap-vsockd /usr/local/sbin/
+        chmod 755 /usr/local/sbin/vpnkit-tap-vsockd
+        chown root:root /usr/local/sbin/vpnkit-tap-vsockd
+        ;;
+      npiperelay)
+        mv npiperelay.exe "${WIN_BIN}"
+        ;;
+    esac
+    shift 1
+  done
+  rm wslbin.tar.gz
+}
+
 mkdir -p "${WIN_BIN}"
 mkdir -p /usr/local/sbin
 if [ "${no_docker}" = "0" ]; then
+  download=()
+
   # Install c:\bin\wsl-vpnkit.exe
-  cp "${DOCKER_WSL}/vpnkit.exe" "${WIN_BIN}/wsl-vpnkit.exe"
+  if [ -f "${DOCKER_WSL}/vpnkit.exe" ]; then
+    cp "${DOCKER_WSL}/vpnkit.exe" "${WIN_BIN}/wsl-vpnkit.exe"
+  elif [ -f "${DOCKER_WSL}/com.docker.vpnkit.exe" ]; then
+    cp "${DOCKER_WSL}/com.docker.vpnkit.exe" "${WIN_BIN}/wsl-vpnkit.exe"
+  else
+    # Incase this breaks again, have a plan B #14
+    download+=(vpnkit)
+  fi
 
   # Install /usr/local/sbin/vpnkit-tap-vsockd
-  extract_from_iso_ps "${DOCKER_WSL}/wsl/docker-for-wsl.iso" containers/services/vpnkit-tap-vsockd/lower/sbin/vpnkit-tap-vsockd vpnkit-tap-vsockd
-  mv vpnkit-tap-vsockd /usr/local/sbin/vpnkit-tap-vsockd
-  chmod +x /usr/local/sbin/vpnkit-tap-vsockd
-  chown root:root /usr/local/sbin/vpnkit-tap-vsockd
+  if extract_from_iso_ps "${DOCKER_WSL}/wsl/docker-for-wsl.iso" containers/services/vpnkit-tap-vsockd/lower/sbin/vpnkit-tap-vsockd vpnkit-tap-vsockd; then
+    mv vpnkit-tap-vsockd /usr/local/sbin/vpnkit-tap-vsockd
+    chmod +x /usr/local/sbin/vpnkit-tap-vsockd
+    chown root:root /usr/local/sbin/vpnkit-tap-vsockd
+  else
+    # This has been broken since #13. It looks like original https://github.com/sakai135/wsl-vpnkit has started using gvisor-tap-vsock
+    download+=(tap)
+  fi
 
   # Install c:\bin\npiperelay.exe
   download_ps "${NPIPRELAY_URL}" npiperelay_windows_amd64.zip
@@ -99,14 +135,11 @@ if [ "${no_docker}" = "0" ]; then
   rm npiperelay_windows_amd64.zip
   mv npiperelay.exe "${WIN_BIN}"
 else
-  download_ps "${WSLBIN_URL}" wslbin.tar.gz
-  tar -xf wslbin.tar.gz .
-  mv wsl-vpnkit.exe "${WIN_BIN}"
-  mv npiperelay.exe "${WIN_BIN}"
-  mv vpnkit-tap-vsockd /usr/local/sbin/
-  chmod 755 /usr/local/sbin/vpnkit-tap-vsockd
-  chown root:root /usr/local/sbin/vpnkit-tap-vsockd
-  rm wslbin.tar.gz
+  download=(vpnkit tap npiperelay)
+fi
+
+if (( "${#download[@]}" )); then
+  download_and_install "${download[@]}"
 fi
 
 # /etc/profile.d/wsl-vpnkit.sh
